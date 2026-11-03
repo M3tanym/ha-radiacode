@@ -442,7 +442,7 @@ def test_extract_rejects_invalid_latest_pair_without_changing_provenance(protoco
 
 
 def test_decode_settings_full(protocol):
-    values = [1, 0, 1, 0, 7, 2, 1, 100, 1000, 50000, 100000, 300, 1200]
+    values = [1, 0, 1, 0, 7, 2, 1, 100, 1000, 50000, 100000, 300, 1200, 0x2B]
     settings = protocol.decode_settings(values)
     assert settings.sound_on is True
     assert settings.vibro_on is False
@@ -457,12 +457,29 @@ def test_decode_settings_full(protocol):
     assert settings.ds_alarm_level2 == 100000
     assert settings.cr_alarm_level1 == 300
     assert settings.cr_alarm_level2 == 1200
+    assert settings.device_ctrl == 0x2B
+    assert settings.leds_on is True
+
+
+def test_decode_settings_leds_off_keeps_raw_flags(protocol):
+    values = [None] * 13 + [0x23]
+    settings = protocol.decode_settings(values)
+    assert settings.leds_on is False
+    assert settings.device_ctrl == 0x23
+
+
+def test_settings_batch_appends_device_ctrl(protocol):
+    assert len(protocol.SETTINGS_VSFR_IDS) == 14
+    assert protocol.SETTINGS_VSFR_IDS[-1] == protocol.VSFR.DEVICE_CTRL == 0x0500
+    assert protocol.DEVICE_CTRL_LEDS == 0x08
 
 
 def test_decode_settings_with_invalid_registers(protocol):
-    settings = protocol.decode_settings([None] * 13)
+    settings = protocol.decode_settings([None] * 14)
     assert settings.sound_on is None
     assert settings.dr_alarm_level1 is None
+    assert settings.device_ctrl is None
+    assert settings.leds_on is None
 
 
 # ── Identity decoders ─────────────────────────────────────────────────────────

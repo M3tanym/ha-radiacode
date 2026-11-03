@@ -2060,3 +2060,39 @@ def test_record_schema_discovery_does_not_poison_observed_spectrum_encoding(
         await client.disconnect()
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("current,on,written", [
+    (0x23, True, 0x2B),   # set the LED bit, keep bits 0, 1 and 5
+    (0x2B, False, 0x23),  # clear it, keep the rest
+    (0xFF, False, 0xF7),
+])
+def test_update_vsfr_bits_preserves_other_flags(client_module, current, on, written):
+    from unittest.mock import AsyncMock
+
+    client = client_module.RadiaCodeBLEClient()
+    client._read_vsfr = AsyncMock(return_value=current)
+    client.write_vsfr = AsyncMock(return_value=True)
+    assert asyncio.run(client.update_vsfr_bits(0x0500, 0x08, on)) is True
+    client._read_vsfr.assert_awaited_once_with(0x0500)
+    client.write_vsfr.assert_awaited_once_with(0x0500, written)
+
+
+@pytest.mark.parametrize("current,on", [(0x2B, True), (0x23, False)])
+def test_update_vsfr_bits_skips_write_when_already_matching(client_module, current, on):
+    from unittest.mock import AsyncMock
+
+    client = client_module.RadiaCodeBLEClient()
+    client._read_vsfr = AsyncMock(return_value=current)
+    client.write_vsfr = AsyncMock(return_value=True)
+    assert asyncio.run(client.update_vsfr_bits(0x0500, 0x08, on)) is True
+    client.write_vsfr.assert_not_awaited()
+
+
+def test_update_vsfr_bits_reports_device_rejection(client_module):
+    from unittest.mock import AsyncMock
+
+    client = client_module.RadiaCodeBLEClient()
+    client._read_vsfr = AsyncMock(return_value=0x23)
+    client.write_vsfr = AsyncMock(return_value=False)
+    assert asyncio.run(client.update_vsfr_bits(0x0500, 0x08, True)) is False

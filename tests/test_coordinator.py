@@ -178,6 +178,7 @@ def make_coordinator(coordinator_module, protocol, clock):
             connect=AsyncMock(side_effect=connect),
             disconnect=AsyncMock(side_effect=disconnect),
             write_vsfr=AsyncMock(return_value=True), reset_spectrum=AsyncMock(return_value=True),
+            update_vsfr_bits=AsyncMock(return_value=True),
         )
         return coordinator
 
@@ -627,6 +628,32 @@ def test_setting_write_refreshes_settings_on_next_maintenance(make_coordinator, 
     asyncio.run(scenario())
 
 
+def test_setting_bits_write_uses_read_modify_write_and_refreshes(make_coordinator, clock, protocol):
+    async def scenario():
+        coordinator = make_coordinator(spectrum_interval=0)
+        await refresh_and_settle(coordinator)
+        clock.now = 1005
+        coordinator._client.get_settings.return_value = protocol.RadiaCodeSettings(leds_on=False)
+        await coordinator.async_write_setting_bits(protocol.VSFR.DEVICE_CTRL, protocol.DEVICE_CTRL_LEDS, False)
+        await settle(coordinator)
+        coordinator._client.update_vsfr_bits.assert_awaited_once_with(
+            protocol.VSFR.DEVICE_CTRL, protocol.DEVICE_CTRL_LEDS, False,
+        )
+        coordinator._client.write_vsfr.assert_not_awaited()
+        assert coordinator.refresh_count == 1
+        assert coordinator.data.settings.leds_on is False
+        await coordinator.async_shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_setting_bits_write_rejection_raises(make_coordinator, coordinator_module, protocol):
+    coordinator = make_coordinator()
+    coordinator._client.update_vsfr_bits.return_value = False
+    with pytest.raises(coordinator_module.UpdateFailed, match="rejected"):
+        asyncio.run(coordinator.async_write_setting_bits(protocol.VSFR.DEVICE_CTRL, 0x08, True))
+
+
 @pytest.mark.parametrize("modern", [True, False])
 def test_device_identity_uses_scoped_registry_api_with_legacy_fallback(
     make_coordinator, coordinator_module, modern,
@@ -669,8 +696,8 @@ def test_user_disabled_poll_does_no_reads(make_coordinator):
 
 
 @pytest.mark.parametrize("action,args", [
-    ("async_write_setting", (0x0522, 0)), ("async_reset_dose", ()),
-    ("async_reset_spectrum", ()), ("async_get_spectrum", ()),
+    ("async_write_setting", (0x0522, 0)), ("async_write_setting_bits", (0x0500, 0x08, True)),
+    ("async_reset_dose", ()), ("async_reset_spectrum", ()), ("async_get_spectrum", ()),
 ])
 def test_user_disabled_actions_reject_connected_transport(make_coordinator, coordinator_module, action, args):
     coordinator = make_coordinator()
@@ -678,6 +705,7 @@ def test_user_disabled_actions_reject_connected_transport(make_coordinator, coor
     with pytest.raises(coordinator_module.UpdateFailed, match="disabled by user"):
         asyncio.run(getattr(coordinator, action)(*args))
     coordinator._client.write_vsfr.assert_not_awaited()
+    coordinator._client.update_vsfr_bits.assert_not_awaited()
     coordinator._client.reset_spectrum.assert_not_awaited()
     coordinator._client.get_spectrum.assert_not_awaited()
 

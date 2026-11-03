@@ -70,6 +70,7 @@ class VS(IntEnum):
 
 class VSFR(IntEnum):
     # Init / time
+    DEVICE_CTRL    = 0x0500   # device control flags (byte); see DEVICE_CTRL_LEDS
     DEVICE_TIME    = 0x0504   # written as 0 after init
 
     # Display settings
@@ -110,6 +111,7 @@ class VSFR(IntEnum):
 # Struct format for reinterpreting raw uint32 VSFR values into typed values.
 # All settings registers are uint32 on the wire (bools and bytes packed in uint32).
 _VSFR_FORMATS: dict[int, str] = {
+    VSFR.DEVICE_CTRL:    "I",
     VSFR.DEVICE_TIME:    "I",
     VSFR.DISP_BRT:       "I",
     VSFR.DISP_OFF_TIME:  "I",
@@ -164,7 +166,14 @@ SETTINGS_VSFR_IDS: list[int] = [
     VSFR.DS_LEV2_uR,
     VSFR.CR_LEV1_cp10s,
     VSFR.CR_LEV2_cp10s,
+    VSFR.DEVICE_CTRL,
 ]
+
+# DEVICE_CTRL bit for LED indication.  The LED_* / LEDS_* VSFRs some
+# references list are absent from the RC-102 FW 4.15 register directory;
+# toggling LEDs in the vendor app flips only this bit (0x23 <-> 0x2B).
+# The other DEVICE_CTRL bits are undocumented and must be preserved.
+DEVICE_CTRL_LEDS = 0x08
 
 
 # ── Data types returned from data_buf ─────────────────────────────────────────
@@ -315,6 +324,8 @@ class RadiaCodeSettings:
     ds_alarm_level2: Optional[int] = None            # µR
     cr_alarm_level1: Optional[int] = None            # counts/10s
     cr_alarm_level2: Optional[int] = None            # counts/10s
+    device_ctrl: Optional[int] = None                # raw DEVICE_CTRL flags
+    leds_on: Optional[bool] = None                   # DEVICE_CTRL_LEDS bit
 
 
 @dataclass
@@ -363,6 +374,8 @@ def decode_settings(values: list[int | float | None]) -> RadiaCodeSettings:
         ds_alarm_level2=int(values[10]) if values[10] is not None else None,
         cr_alarm_level1=int(values[11]) if values[11] is not None else None,
         cr_alarm_level2=int(values[12]) if values[12] is not None else None,
+        device_ctrl=int(values[13]) if values[13] is not None else None,
+        leds_on=bool(int(values[13]) & DEVICE_CTRL_LEDS) if values[13] is not None else None,
     )
 
 

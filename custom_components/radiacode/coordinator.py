@@ -1299,6 +1299,32 @@ class RadiaCodeCoordinator(DataUpdateCoordinator[RadiaCodeCoordinatorData]):
         self._next_settings_read = 0.0
         await self.async_request_refresh()
 
+    async def async_write_setting_bits(self, vsfr_id: int, mask: int, on: bool) -> None:
+        """Set or clear bits in a flag register, preserving the others, and refresh.
+
+        Raises UpdateFailed if the read-modify-write fails or the device
+        rejects the value.
+        """
+        self._check_user_disconnected("write setting")
+        if not self._client.is_connected:
+            raise UpdateFailed("Cannot write setting: device not connected")
+
+        state = "set" if on else "clear"
+        try:
+            ok = await self._client.update_vsfr_bits(vsfr_id, mask, on)
+        except Exception as err:
+            raise UpdateFailed(
+                f"Failed to {state} VSFR {vsfr_id:#06x} bits {mask:#04x}: {err}"
+            ) from err
+
+        if not ok:
+            raise UpdateFailed(
+                f"Device rejected VSFR {vsfr_id:#06x} bits {mask:#04x} {state}"
+            )
+
+        self._next_settings_read = 0.0
+        await self.async_request_refresh()
+
     async def async_reset_dose(self) -> None:
         """Reset the accumulated dose counter on the device.
 

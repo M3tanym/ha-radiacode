@@ -1118,6 +1118,19 @@ class RadiaCodeBLEClient:
         payload = await self._execute(CMD.WR_VIRT_SFR, args)
         return parse_write_response(payload)
 
+    async def update_vsfr_bits(self, vsfr_id: int, mask: int, on: bool) -> bool:
+        """Set or clear *mask* bits in a flag register.  Returns True on success.
+
+        Reads the register immediately before writing so flags changed
+        elsewhere (e.g. the vendor app) since the last settings poll are
+        preserved.  Skips the write when the bits already match.
+        """
+        current = int(await self._read_vsfr(vsfr_id))
+        updated = current | mask if on else current & ~mask
+        if updated == current:
+            return True
+        return await self.write_vsfr(vsfr_id, updated)
+
     # ── Notification handler ──────────────────────────────────────────────────
 
     def _on_client_notify(

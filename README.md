@@ -171,6 +171,7 @@ The integration exposes the full Radiacode configuration as writable HA entities
 | Vibration | Enable/disable vibration on detection events |
 | Display | Turn the device display on or off |
 | Display Backlight | Enable/disable display backlight |
+| LEDs | Enable/disable LED indication. Changes only the LED bit of the device-control register (verified on RC-102 firmware 4.15) |
 | BLE Connection | Turn off to release the device so the Radiacode mobile app can connect; turn back on to resume polling |
 
 ### Numbers

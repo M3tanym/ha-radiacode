@@ -37,6 +37,7 @@ SWITCH_SOUND_ON     = "sound_on"
 SWITCH_VIBRO_ON     = "vibro_on"
 SWITCH_DISPLAY_ON   = "display_on"
 SWITCH_BACKLIGHT_ON = "display_backlight_on"
+SWITCH_LEDS_ON      = "leds_on"
 
 # Connection switch key (not a device setting — controls integration BLE state)
 SWITCH_BLE_CONNECTED = "ble_connected"

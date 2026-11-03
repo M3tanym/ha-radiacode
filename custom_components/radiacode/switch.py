@@ -1,11 +1,12 @@
 """Switch platform for the RadiaCode integration.
 
-Five toggle switches per device:
+Six toggle switches per device:
   • BLE Connection   — connect/disconnect the device (allows mobile app access)
   • Sound            — audible click / alarm on/off
   • Vibration        — haptic feedback on/off
   • Display          — OLED screen on/off
   • Backlight        — display backlight on/off
+  • LEDs             — LED indication on/off (a DEVICE_CTRL bit)
 """
 
 from __future__ import annotations
@@ -30,19 +31,25 @@ from .const import (
     SWITCH_VIBRO_ON,
     SWITCH_DISPLAY_ON,
     SWITCH_BACKLIGHT_ON,
+    SWITCH_LEDS_ON,
     build_device_info,
 )
 from .coordinator import RadiaCodeCoordinator
-from .radiacode_ble.protocol import VSFR
+from .radiacode_ble.protocol import DEVICE_CTRL_LEDS, VSFR
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
 class RadiaCodeSwitchDescription(SwitchEntityDescription):
-    """Extended description carrying the VSFR register ID for writes."""
+    """Extended description carrying the VSFR register ID for writes.
+
+    A non-zero *bit_mask* makes the switch control only those bits of a
+    flag register, leaving the register's other bits untouched.
+    """
 
     vsfr_id: int = 0
+    bit_mask: int = 0
 
 
 SWITCH_DESCRIPTIONS: tuple[RadiaCodeSwitchDescription, ...] = (
@@ -73,6 +80,14 @@ SWITCH_DESCRIPTIONS: tuple[RadiaCodeSwitchDescription, ...] = (
         icon="mdi:brightness-6",
         entity_category=EntityCategory.CONFIG,
         vsfr_id=VSFR.DISP_BACKLT_ON,
+    ),
+    RadiaCodeSwitchDescription(
+        key=SWITCH_LEDS_ON,
+        name="LEDs",
+        icon="mdi:led-on",
+        entity_category=EntityCategory.CONFIG,
+        vsfr_id=VSFR.DEVICE_CTRL,
+        bit_mask=DEVICE_CTRL_LEDS,
     ),
 )
 
@@ -128,15 +143,20 @@ class RadiaCodeSwitch(CoordinatorEntity[RadiaCodeCoordinator], SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.coordinator.async_write_setting(
-            self.entity_description.vsfr_id, 1
-        )
+        await self._async_write(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.coordinator.async_write_setting(
-            self.entity_description.vsfr_id, 0
-        )
+        await self._async_write(False)
+
+    async def _async_write(self, on: bool) -> None:
+        desc = self.entity_description
+        if desc.bit_mask:
+            await self.coordinator.async_write_setting_bits(
+                desc.vsfr_id, desc.bit_mask, on
+            )
+        else:
+            await self.coordinator.async_write_setting(desc.vsfr_id, int(on))
 
 
 class RadiaCodeConnectionSwitch(CoordinatorEntity[RadiaCodeCoordinator], SwitchEntity):
