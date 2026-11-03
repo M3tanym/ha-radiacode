@@ -2,7 +2,8 @@ name: Validate
 
 on:
   push:
-    branches: ["main"]
+    # Fork-only: led-control can't PR cleanly into this fork's main (drop before upstreaming).
+    branches: ["main", "led-control"]
   pull_request:
     branches: ["main"]
 
