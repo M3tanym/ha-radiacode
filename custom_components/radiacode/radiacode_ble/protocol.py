@@ -174,6 +174,9 @@ SETTINGS_VSFR_IDS: list[int] = [
 # toggling LEDs in the vendor app flips only this bit (0x23 <-> 0x2B).
 # The other DEVICE_CTRL bits are undocumented and must be preserved.
 DEVICE_CTRL_LEDS = 0x08
+# Bit 0 shares the DEVICE_ON (0x0503) handler in decompiled 4.14 firmware
+# (darkmatter2222/radiacode-firmware), and mkgeiger/RadiaCode names it PWR.
+DEVICE_CTRL_POWER = 0x01
 
 
 # ── Data types returned from data_buf ─────────────────────────────────────────

@@ -74,6 +74,7 @@ from .protocol import (
     parse_group4_format,
     VS,
     VSFR,
+    DEVICE_CTRL_POWER,
     DIAGNOSTIC_VSFR_IDS,
     SETTINGS_VSFR_IDS,
     SERVICE_UUID,
@@ -1124,8 +1125,16 @@ class RadiaCodeBLEClient:
         Reads the register immediately before writing so flags changed
         elsewhere (e.g. the vendor app) since the last settings poll are
         preserved.  Skips the write when the bits already match.
+
+        Refuses DEVICE_CTRL writes when the power bit reads clear: writing
+        it back as 0 takes the firmware's power-off path.
         """
         current = int(await self._read_vsfr(vsfr_id))
+        if vsfr_id == VSFR.DEVICE_CTRL and not current & DEVICE_CTRL_POWER:
+            raise ValueError(
+                f"DEVICE_CTRL reads {current:#04x} with the power bit clear; "
+                "refusing to write it back"
+            )
         updated = current | mask if on else current & ~mask
         if updated == current:
             return True

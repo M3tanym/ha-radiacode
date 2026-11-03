@@ -2089,6 +2089,28 @@ def test_update_vsfr_bits_skips_write_when_already_matching(client_module, curre
     client.write_vsfr.assert_not_awaited()
 
 
+@pytest.mark.parametrize("current,on", [(0x22, True), (0x2A, False), (0x00, True)])
+def test_update_vsfr_bits_refuses_device_ctrl_with_power_bit_clear(client_module, current, on):
+    from unittest.mock import AsyncMock
+
+    client = client_module.RadiaCodeBLEClient()
+    client._read_vsfr = AsyncMock(return_value=current)
+    client.write_vsfr = AsyncMock(return_value=True)
+    with pytest.raises(ValueError, match="power bit clear"):
+        asyncio.run(client.update_vsfr_bits(client_module.VSFR.DEVICE_CTRL, 0x08, on))
+    client.write_vsfr.assert_not_awaited()
+
+
+def test_update_vsfr_bits_power_guard_applies_only_to_device_ctrl(client_module):
+    from unittest.mock import AsyncMock
+
+    client = client_module.RadiaCodeBLEClient()
+    client._read_vsfr = AsyncMock(return_value=0x02)
+    client.write_vsfr = AsyncMock(return_value=True)
+    assert asyncio.run(client.update_vsfr_bits(0x0530, 0x01, True)) is True
+    client.write_vsfr.assert_awaited_once_with(0x0530, 0x03)
+
+
 def test_update_vsfr_bits_reports_device_rejection(client_module):
     from unittest.mock import AsyncMock
 
